@@ -31,7 +31,7 @@ def _build(fn_csv, fn_npz, maxlen=13):
     np.savez(fn_npz, data=data, words=words)
 
 
-def load_data(fn='data.csv'):
+def load_data(fn='couplets.csv'):
     # 下载
     url = 'https://raw.githubusercontent.com/oyrx/SpringCoupletData/master/SpringCouplets.csv'
     fn_csv = keras.utils.get_file(fn, url, cache_dir='.')
@@ -71,16 +71,38 @@ def train():
                   metrics=['acc'])
     model.summary()
     model.fit(x_data, y_data,
-              epochs=100, callbacks=[reduce_lr])
-    x = np.zeros((1, 2 * c), dtype='uint32')
-    for i in range(2 * c):
-        s = max(i - c, 0)
-        probas = model.predict(x[s:s + c], verbose=0)
-        probas = np.random.multinomial(1, probas, 1)
-        char = np.argmax(probas)
-        x[i] = char
-        char = words[char]
-        print(char)
+              epochs=10, callbacks=[reduce_lr])
+    model.save('model.couplets.h5', include_optimizer=False)
 
 
-train()
+if __name__ == '__main__':
+    train()
+
+
+'''
+data, words = load_data('data')
+print(data.shape, data.dtype)
+print(data[:1])
+print(words[:10])
+print(to_string(words, data[0]))
+model = models.Sequential([
+    layers.Embedding(words.size, 32, input_length=data.shape[2]),
+    layers.Bidirectional(layers.LSTM(32, dropout=0.75, recurrent_dropout=0.1)),
+    layers.Dense(1, activation='sigmoid'),
+])
+reduce_lr = ReduceLROnPlateau(verbose=1)
+model.compile(optimizer='rmsprop',
+              loss='binary_crossentropy',
+              metrics=['acc'])
+model.summary()
+n, _, c = data.shape
+data.shape = 2 * n, c
+x_data = data
+x_data = x_data[:, ::-1]
+y_data = np.arange(data.shape[0]) % 2
+model.fit(x_data, y_data, epochs=100, validation_split=0.2, callbacks=[reduce_lr])
+'''
+'''
+y_data = np.copy(x_data)
+y_data[:, :-1] = x_data[:, 1:]
+'''
